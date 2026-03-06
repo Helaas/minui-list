@@ -3,6 +3,7 @@ CURRENT_WORKING_DIR = $(shell pwd)
 PLATFORM ?= tg5040
 MINUI_VERSION ?= v20251023-0
 NEXTUI_VERSION ?= v6.9.0
+TG5050_DOCKER_IMAGE ?= savant/minui-toolchain:tg5050
 
 # Determine upstream repository based on platform
 ifeq ($(PLATFORM),tg5050)
@@ -24,7 +25,9 @@ ifeq ($(PLATFORM),macos)
   -include platforms/macos/platform/makefile.env
 else
   ifeq (,$(CROSS_COMPILE))
-    $(error missing CROSS_COMPILE for this toolchain)
+    ifeq (,$(filter docker-tg5050 build-tg5050-docker,$(MAKECMDGOALS)))
+      $(error missing CROSS_COMPILE for this toolchain)
+    endif
   endif
   CC = $(CROSS_COMPILE)gcc
   PREFIX = $(CURRENT_WORKING_DIR)/platform/$(PLATFORM)
@@ -82,6 +85,15 @@ endif
 
 clean:
 	rm -rf $(PRODUCT)-$(PLATFORM)
+
+.PHONY: docker-tg5050 build-tg5050-docker
+
+# Build tg5050 with the containerized NextUI toolchain in one step.
+docker-tg5050: build-tg5050-docker
+
+build-tg5050-docker:
+	docker pull $(TG5050_DOCKER_IMAGE)
+	docker run --rm -v "$(CURRENT_WORKING_DIR)":/root/workspace -e PLATFORM=tg5050 $(TG5050_DOCKER_IMAGE) /bin/bash -lc 'source /root/.bashrc && cd /root/workspace && make setup && make'
 
 # macOS resource setup - copies MinUI assets to the SDCARD_PATH location
 setup-resources: minui
